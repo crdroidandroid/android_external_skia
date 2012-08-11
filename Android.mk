@@ -48,8 +48,8 @@ ifeq ($(ARCH_ARM_HAVE_NEON),true)
 	LOCAL_CFLAGS += -D__ARM_HAVE_NEON
 endif
 
-# Enable Neon assembler optimized version of S32A_Opaque_BlitRow32.
-# Overrides the intrinsic blitter below.
+# Enable Neon assembler optimized version of S32A_Opaque_BlitRow32 and
+# S32A_Blend_Blitrow32. Overrides the intrinsic blitter below.
 LOCAL_CFLAGS += -DENABLE_OPTIMIZED_S32A_BLITTERS
 
 LOCAL_CFLAGS += -DDCT_IFAST_SUPPORTED
@@ -528,6 +528,7 @@ endif
 
 LOCAL_SRC_FILES += \
 	src/opts/S32A_Opaque_BlitRow32_neon.S \
+	src/opts/S32A_Blend_BlitRow32_neon.S \
 	src/opts/memset16_neon.S \
 	src/opts/memset32_neon.S \
 	src/opts/SkBitmapProcState_arm_neon.cpp \
