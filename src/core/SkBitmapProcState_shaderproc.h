@@ -74,7 +74,7 @@ void SCALE_FILTER_NAME(const SkBitmapProcState& s, int x, int y,
     if (dx>=0)
     {
         int end = ((int)maxX-1)<<16;
-        num = (end-fx)/dx;
+        num = dx?((end-fx)/dx):0;
         if (num < 0) num = 0;
 
         if (num<count)
