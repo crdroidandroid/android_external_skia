@@ -10,6 +10,7 @@
 #include "SkTypeface.h"
 
 #include <expat.h>
+#include <stdio.h>
 #include <sys/system_properties.h>
 #include <unistd.h>
 
@@ -228,6 +229,7 @@ static void parseConfigFile(const char *filename, SkTDArray<FontFamily*> &famili
         }
         XML_Parse(parser, buffer, len, done);
     }
+    XML_ParserFree(parser);
     fclose(file);
 }
 
