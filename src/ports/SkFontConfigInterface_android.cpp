@@ -245,7 +245,7 @@ SkFontConfigInterfaceAndroid::SkFontConfigInterfaceAndroid(SkTDArray<FontFamily*
             SkString filename;
             char useSystemFontProp[PROP_VALUE_MAX];
 
-            if (use_theme_font && !family->fIsFallbackFont && !family->fIsFallbackMonospaceFont) {
+            if (use_theme_font && !family->fIsFallbackFont && !family->fIsThemeFallbackFont) {
                get_path_for_themed_fonts(&filename, family->fFontFiles[j]->fFileName);
             } else {
                get_path_for_sys_fonts(&filename, family->fFontFiles[j]->fFileName);
