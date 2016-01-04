@@ -852,15 +852,3 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := \
 include $(BASE_PATH)/skia_static_deps.mk
 include $(BUILD_SHARED_LIBRARY)
 
-#############################################################
-# Build the skia tools
-#
-
-# benchmark (timings)
-include $(BASE_PATH)/bench/Android.mk
-
-#disable build in PDK
-ifneq ($(TARGET_BUILD_PDK),true)
-# diamond-master (one test to rule them all)
-include $(BASE_PATH)/dm/Android.mk
-endif
