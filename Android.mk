@@ -49,7 +49,7 @@ ifneq ($(strip $(TARGET_FDO_CFLAGS)),)
 	LOCAL_CFLAGS += -O3
 endif
 
-LOCAL_ARM_MODE := thumb
+LOCAL_ARM_MODE := arm
 # used for testing
 #LOCAL_CFLAGS += -g -O0
 
