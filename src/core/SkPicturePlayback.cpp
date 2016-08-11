@@ -349,7 +349,9 @@ void SkPicturePlayback::handleOp(SkReader32* reader,
             const SkPoint* pos = (const SkPoint*)reader->skip(points * sizeof(SkPoint));
             const SkScalar top = reader->readScalar();
             const SkScalar bottom = reader->readScalar();
-            if (!canvas->quickRejectY(top, bottom)) {
+            SkRect clip;
+            canvas->getClipBounds(&clip);
+            if (top < clip.fBottom && bottom > clip.fTop) {
                 canvas->drawPosText(text.text(), text.length(), pos, paint);
             }
         } break;
@@ -371,7 +373,9 @@ void SkPicturePlayback::handleOp(SkReader32* reader,
             const SkScalar top = *xpos++;
             const SkScalar bottom = *xpos++;
             const SkScalar constY = *xpos++;
-            if (!canvas->quickRejectY(top, bottom)) {
+            SkRect clip;
+            canvas->getClipBounds(&clip);
+            if (top < clip.fBottom && bottom > clip.fTop) {
                 canvas->drawPosTextH(text.text(), text.length(), xpos, constY, paint);
             }
         } break;
@@ -416,7 +420,11 @@ void SkPicturePlayback::handleOp(SkReader32* reader,
             // ptr[1] == y
             // ptr[2] == top
             // ptr[3] == bottom
-            if (!canvas->quickRejectY(ptr[2], ptr[3])) {
+            SkRect clip;
+            canvas->getClipBounds(&clip);
+            float top = ptr[2];
+            float bottom = ptr[3];
+            if (top < clip.fBottom && bottom > clip.fTop) {
                 canvas->drawText(text.text(), text.length(), ptr[0], ptr[1], paint);
             }
         } break;
