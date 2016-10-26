@@ -47,7 +47,7 @@ static inline SkColor SkColorSetARGBInline(U8CPU a, U8CPU r, U8CPU g, U8CPU b)
  * static const SkColor kMyColor = SkColorSetARGB(0xFF, 0x01, 0x02, 0x03)
  * if SkColorSetARGB() is a static inline, but not if it's a macro.
  */
-#if defined(NDEBUG)
+#if defined(SK_RELEASE)
 #define SkColorSetARGB(a, r, g, b) SkColorSetARGBMacro(a, r, g, b)
 #else
 #define SkColorSetARGB(a, r, g, b) SkColorSetARGBInline(a, r, g, b)
