@@ -121,11 +121,9 @@ static inline bool supports_simd(int minLevel) {
 
 void SkBitmapScaler::PlatformConvolutionProcs(SkConvolutionProcs* procs) {
     if (supports_simd(SK_CPU_SSE_LEVEL_SSE2)) {
-        procs->fExtraHorizontalReads = 3;
         procs->fConvolveVertically = &convolveVertically_SSE2;
         procs->fConvolve4RowsHorizontally = &convolve4RowsHorizontally_SSE2;
         procs->fConvolveHorizontally = &convolveHorizontally_SSE2;
-        procs->fApplySIMDPadding = &applySIMDPadding_SSE2;
     }
 }
 
