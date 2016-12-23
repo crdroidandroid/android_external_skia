@@ -749,6 +749,12 @@ LOCAL_SRC_FILES_arm += \
 LOCAL_CFLAGS_arm += \
 	-DqDNGBigEndian=0
 
+ifeq (,$(findstring crc,$(TARGET_CPU_FEATURES)))
+LOCAL_CFLAGS_arm64 += \
+	-march=armv8-a+crc
+
+endif
+
 ifeq ($(ARCH_ARM_HAVE_NEON), true)
 LOCAL_SRC_FILES_arm += \
 	src/opts/SkBitmapProcState_arm_neon.cpp \
@@ -758,7 +764,8 @@ LOCAL_SRC_FILES_arm += \
 	src/opts/SkOpts_neon.cpp
 
 LOCAL_CFLAGS_arm += \
-	-DSK_ARM_HAS_NEON
+	-DSK_ARM_HAS_NEON \
+	-mfpu=neon
 
 endif
 
