@@ -3,6 +3,8 @@
 cc_library {
     name: "libskia",
     cflags: [
+        "-O3",
+        "-funsafe-math-optimizations",
         "-fexceptions",
         "-Wno-unused-parameter",
         "-U_FORTIFY_SOURCE",
