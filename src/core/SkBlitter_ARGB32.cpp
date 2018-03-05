@@ -12,6 +12,10 @@
 #include "SkXfermodePriv.h"
 #include "SkBlitMask.h"
 
+#include <semaphore.h>
+#include <assert.h>
+#include <pthread.h>
+#include <cutils/log.h>
 ///////////////////////////////////////////////////////////////////////////////
 
 static void SkARGB32_Blit32(const SkPixmap& device, const SkMask& mask,
@@ -383,14 +387,77 @@ void SkARGB32_Shader_Blitter::blitH(int x, int y, int width) {
     }
 }
 
-void SkARGB32_Shader_Blitter::blitRect(int x, int y, int width, int height) {
-    SkASSERT(x >= 0 && y >= 0 &&
-             x + width <= fDevice.width() && y + height <= fDevice.height());
+#define BUF_MAX 8192
+#define __ATOMIC_INLINE__ static __inline__ __attribute__((always_inline))
 
-    uint32_t*  device = fDevice.writable_addr32(x, y);
-    size_t     deviceRB = fDevice.rowBytes();
-    auto*      shaderContext = fShaderContext;
-    SkPMColor* span = fBuffer;
+__ATOMIC_INLINE__ int __atomic_dec(volatile int *ptr) {
+  return __sync_fetch_and_sub (ptr, 1);
+}
+
+__ATOMIC_INLINE__ int __atomic_inc(volatile int *ptr) {
+  return __sync_fetch_and_add (ptr, 1);
+}
+
+static volatile int worker_thread_inited=0;
+static volatile int worker_thread_busy=0;
+static volatile void *work=0;
+
+#define WORKER_THREADS_NUM 1
+
+static pthread_t worker_threads[WORKER_THREADS_NUM];
+sem_t sem_todo[WORKER_THREADS_NUM];
+sem_t sem_done[WORKER_THREADS_NUM];
+
+extern const char* __progname;
+static int is_not_zygote(){
+
+    const char * buf = __progname;
+    const char * zygote = "zygote";
+    /*
+     * adb shell cat /proc/192/cmdline
+     * zygote/bin/app_process-Xzygote/system/bin--zygote--start-system-server
+     */
+    return strncmp( buf, zygote, 6);
+}
+
+struct shadeSpanArg {
+    SkShaderBase::Context* shaderContext;
+    int x;
+    int y;
+    int width;
+    int height;
+    uint32_t* device;
+    size_t deviceRB;
+    bool fShadeDirectlyIntoDevice ;
+    bool fConstInY;
+    SkXfermode* fXfermode ;
+    SkBlitRow::Proc32 fProc32 ;
+    SkPMColor* fBuffer;
+};
+
+
+void blitRect_core(
+        SkShaderBase::Context* shaderContext,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint32_t* device,
+        size_t deviceRB,
+        bool fShadeDirectlyIntoDevice,
+        bool fConstInY,
+        SkXfermode* fXfermode,
+        SkBlitRow::Proc32 fProc32,
+        SkPMColor* fbuffer)
+{
+    SkPMColor*  span = NULL;
+    if (fbuffer) {
+       span = fbuffer;
+    } else {
+       SkASSERT(width <= BUF_MAX);
+       uint32_t buffer[BUF_MAX];
+       span = (SkPMColor*)buffer;
+    }
 
     if (fConstInY) {
         if (fShadeDirectlyIntoDevice) {
@@ -457,6 +524,167 @@ void SkARGB32_Shader_Blitter::blitRect(int x, int y, int width, int height) {
             } while (--height > 0);
         }
     }
+}
+
+void * worker_blitRect(void * arg) {
+
+    long id=(long)arg;
+
+    //worker thread
+    while(1){
+        sem_wait( &sem_todo[id] );
+        if ( work != 0 ) {
+            struct shadeSpanArg * arg= (struct shadeSpanArg *)work;
+            SkShaderBase::Context* shaderContext =arg->shaderContext;
+            int x = arg->x;
+            int y = arg->y;
+            int width = arg->width;
+            int height = arg->height;
+            uint32_t* device = arg->device;
+            size_t deviceRB = arg->deviceRB;
+
+            bool fShadeDirectlyIntoDevice = arg->fShadeDirectlyIntoDevice;
+            bool fConstInY = arg->fConstInY;
+            SkXfermode* fXfermode = arg->fXfermode;
+            SkBlitRow::Proc32 fProc32 = arg->fProc32;
+            SkPMColor* fBuffer = arg->fBuffer;
+
+            blitRect_core(
+                    shaderContext,
+                    x,
+                    y,
+                    width,
+                    height,
+                    device,
+                    deviceRB,
+                    fShadeDirectlyIntoDevice,
+                    fConstInY,
+                    fXfermode,
+                    fProc32,
+                    fBuffer
+                    );
+
+            work = 0;
+        }
+        sem_post( &sem_done[id] );
+    }
+    pthread_exit(0);
+    return (void *)0;
+}
+
+
+void SkARGB32_Shader_Blitter::blitRect(int x, int y, int width, int height) {
+    SkASSERT(x >= 0 && y >= 0 &&
+             x + width <= fDevice.width() && y + height <= fDevice.height());
+
+    uint32_t*  device = fDevice.writable_addr32(x, y);
+    size_t     deviceRB = fDevice.rowBytes();
+    auto*      shaderContext = fShaderContext;
+    SkPMColor* span = fBuffer;
+
+    if (fShaderContext->getID() != SkShaderBase::Context::kSkBitmapProcShader_Class) {
+        goto fb;
+    }
+
+    if( ((height*width) > (750 * 400)) && (width <= BUF_MAX) ) {
+        struct shadeSpanArg msg;
+        if (__atomic_inc( &worker_thread_busy ) == 0) {
+            if( !worker_thread_inited ) {
+                if( __atomic_inc( &worker_thread_inited ) == 0 ) {
+                    //Only start the other thread in non-zygote mode.
+                    if( !is_not_zygote() ){
+                        __atomic_dec( &worker_thread_busy );
+                        __atomic_dec( &worker_thread_inited );
+                        goto fb;
+                    }
+                    long i;
+                    for( i = 0; i < WORKER_THREADS_NUM; i++ ){
+                        sem_init(&sem_todo[i], 0, 0);
+                        sem_init(&sem_done[i], 0, 0);
+                        pthread_create( &worker_threads[i], NULL, worker_blitRect, (void *)i );
+                    }
+
+                }
+            }
+            msg.shaderContext = shaderContext;
+            msg.x = x;
+            msg.y = (y + (height>>1));
+            msg.width = width;
+            msg.height = (height - (height>>1));
+            msg.device = (uint32_t*)((char*)device + (deviceRB * (height>>1)));
+            msg.deviceRB = (deviceRB);
+
+            msg.fShadeDirectlyIntoDevice = fShadeDirectlyIntoDevice;
+            msg.fConstInY = fConstInY;
+            msg.fXfermode = fXfermode;
+            msg.fProc32 = fProc32;
+            msg.fBuffer = NULL;
+
+            /* Construct the input for worker_thread and start work on it
+             * Currently there is only one worker_thread
+             * If more worker threads are added, the worker thread input needs
+             * to be constructed accordingly and different to_worker_thread used
+             */
+
+            int to_worker_thread;
+
+            assert( work == 0 );
+            work = &msg;
+
+            to_worker_thread = 0;
+            height = height >> 1;
+
+            sem_post( &sem_todo[to_worker_thread] );
+
+            blitRect_core(
+                    shaderContext,
+                    x,
+                    y,
+                    width,
+                    height,
+                    device,
+                    deviceRB,
+                    fShadeDirectlyIntoDevice,
+                    fConstInY,
+                    fXfermode,
+                    fProc32,
+                    NULL
+                    );
+
+
+            sem_wait( &sem_done[to_worker_thread] );
+
+            /* Need to set to NULL value. No point in still storing addresso of local
+             * variable, after function returns
+             */
+            work = NULL;
+
+            __atomic_dec( &worker_thread_busy );
+        }
+        else {
+            __atomic_dec( &worker_thread_busy );
+            goto fb;
+        }
+
+        return;
+    }
+
+
+fb:
+    blitRect_core(
+            shaderContext,
+            x,
+            y,
+            width,
+            height,
+            device,
+            deviceRB,
+            fShadeDirectlyIntoDevice,
+            fConstInY,
+            fXfermode,
+            fProc32,
+            fBuffer
+            );
 }
 
 void SkARGB32_Shader_Blitter::blitAntiH(int x, int y, const SkAlpha antialias[],
