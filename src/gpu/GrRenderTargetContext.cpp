@@ -1167,7 +1167,8 @@ bool GrRenderTargetContext::drawFilledDRRect(const GrClip& clip,
             SkStrokeRec stroke(SkStrokeRec::kFill_InitStyle);
             stroke.setStrokeStyle(outerR - innerR);
             auto op = GrOvalOpFactory::MakeOvalOp(std::move(paint), viewMatrix, circleBounds,
-                                                  stroke, this->caps()->shaderCaps());
+                                                  GrStyle(stroke, nullptr),
+                                                  this->caps()->shaderCaps());
             if (op) {
                 this->addDrawOp(clip, std::move(op));
                 return true;
@@ -1299,28 +1300,25 @@ void GrRenderTargetContext::drawOval(const GrClip& clip,
     SkDEBUGCODE(this->validate();)
     GR_CREATE_TRACE_MARKER_CONTEXT("GrRenderTargetContext", "drawOval", fContext);
 
-    if (oval.isEmpty()) {
-       return;
+    if (oval.isEmpty() && !style.pathEffect()) {
+        return;
     }
 
-    SkASSERT(!style.pathEffect()); // this should've been devolved to a path in SkGpuDevice
-
     AutoCheckFlush acf(this->drawingManager());
-    const SkStrokeRec& stroke = style.strokeRec();
 
     GrAAType aaType = this->chooseAAType(aa, GrAllowMixedSamples::kNo);
     if (GrAAType::kCoverage == aaType) {
         const GrShaderCaps* shaderCaps = fContext->caps()->shaderCaps();
-        std::unique_ptr<GrDrawOp> op =
-                GrOvalOpFactory::MakeOvalOp(std::move(paint), viewMatrix, oval, stroke, shaderCaps);
-        if (op) {
+        if (auto op = GrOvalOpFactory::MakeOvalOp(std::move(paint), viewMatrix, oval, style,
+                                                  shaderCaps)) {
             this->addDrawOp(clip, std::move(op));
             return;
         }
     }
 
-    this->drawShapeUsingPathRenderer(clip, std::move(paint), aa, viewMatrix,
-                                     GrShape(SkRRect::MakeOval(oval), style));
+    this->drawShapeUsingPathRenderer(
+            clip, std::move(paint), aa, viewMatrix,
+            GrShape(SkRRect::MakeOval(oval), SkPath::kCW_Direction, 2, false, style));
 }
 
 void GrRenderTargetContext::drawArc(const GrClip& clip,
@@ -1355,17 +1353,17 @@ void GrRenderTargetContext::drawArc(const GrClip& clip,
             return;
         }
     }
-    SkPath path;
-    SkPathPriv::CreateDrawArcPath(&path, oval, startAngle, sweepAngle, useCenter,
-                                  style.isSimpleFill());
-    this->drawShapeUsingPathRenderer(clip, std::move(paint), aa, viewMatrix, GrShape(path, style));
+    this->drawShapeUsingPathRenderer(
+            clip, std::move(paint), aa, viewMatrix,
+            GrShape::MakeArc(oval, startAngle, sweepAngle, useCenter, style));
 }
 
 void GrRenderTargetContext::drawImageLattice(const GrClip& clip,
                                              GrPaint&& paint,
                                              const SkMatrix& viewMatrix,
-                                             int imageWidth,
-                                             int imageHeight,
+                                             sk_sp<GrTextureProxy> image,
+                                             sk_sp<GrColorSpaceXform> csxf,
+                                             GrSamplerState::Filter filter,
                                              std::unique_ptr<SkLatticeIter> iter,
                                              const SkRect& dst) {
     ASSERT_SINGLE_OWNER
@@ -1375,8 +1373,9 @@ void GrRenderTargetContext::drawImageLattice(const GrClip& clip,
 
     AutoCheckFlush acf(this->drawingManager());
 
-    std::unique_ptr<GrDrawOp> op = GrLatticeOp::MakeNonAA(std::move(paint), viewMatrix, imageWidth,
-                                                          imageHeight, std::move(iter), dst);
+    std::unique_ptr<GrDrawOp> op =
+            GrLatticeOp::MakeNonAA(std::move(paint), viewMatrix, std::move(image), std::move(csxf),
+                                   filter, std::move(iter), dst);
     this->addDrawOp(clip, std::move(op));
 }
 
