@@ -578,7 +578,7 @@ sk_sp<GrSurfaceProxy> GrProxyProvider::createWrappedRenderTargetProxy(
             return nullptr;
         }
     }
-    return proxy;
+    return std::move(proxy);
 }
 
 sk_sp<GrSurfaceProxy> GrProxyProvider::createWrappedRenderTargetProxy(
@@ -637,7 +637,7 @@ sk_sp<GrSurfaceProxy> GrProxyProvider::createWrappedRenderTargetProxy(
             return nullptr;
         }
     }
-    return proxy;
+    return std::move(proxy);
 }
 
 sk_sp<GrTextureProxy> GrProxyProvider::createLazyProxy(LazyInstantiateCallback&& callback,
