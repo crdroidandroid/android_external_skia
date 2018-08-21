@@ -52,6 +52,7 @@ cc_library_static {
         "-Wno-unused-macros",
         "-Wno-unused-member-function",
         "-Wno-unused-parameter",
+        "-Wno-unused-variable",
         "-Wno-unused-template",
         "-Wno-zero-as-null-pointer-constant",
         "-Wpointer-arith",
