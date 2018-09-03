@@ -570,7 +570,6 @@ void SkARGB32_Shader_Blitter::blitRect(int x, int y, int width, int height) {
     uint32_t*  device = fDevice.writable_addr32(x, y);
     size_t     deviceRB = fDevice.rowBytes();
     auto*      shaderContext = fShaderContext;
-    SkPMColor* span = fBuffer;
 
     if (fShaderContext->getID() != SkShaderBase::Context::kSkBitmapProcShader_Class) {
         goto fb;
