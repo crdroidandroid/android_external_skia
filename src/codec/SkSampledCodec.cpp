@@ -118,12 +118,12 @@ SkCodec::Result SkSampledCodec::onGetAndroidPixels(const SkImageInfo& info, void
             if (incResult == SkCodec::kSuccess) {
                 return SkCodec::kSuccess;
             }
-            SkASSERT(SkCodec::kIncompleteInput == incResult);
+            SkASSERT(incResult == SkCodec::kIncompleteInput || incResult == SkCodec::kErrorInInput);
 
             // FIXME: Can zero initialized be read from SkCodec::fOptions?
             this->codec()->fillIncompleteImage(scaledInfo, pixels, rowBytes,
                     options.fZeroInitialized, scaledSubsetHeight, rowsDecoded);
-            return SkCodec::kIncompleteInput;
+            return incResult;
         } else if (startResult != SkCodec::kUnimplemented) {
             return startResult;
         }
