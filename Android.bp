@@ -54,6 +54,7 @@ cc_library_static {
         "-Wno-unused-parameter",
         "-Wno-unused-template",
         "-Wno-zero-as-null-pointer-constant",
+        "-Wno-array-suspicious",
         "-Wpointer-arith",
         "-Wsign-compare",
         "-Wvla",
