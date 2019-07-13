@@ -8,6 +8,7 @@
 #include "SkAndroidFrameworkUtils.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
+#include "SkRect.h"
 
 #if SK_SUPPORT_GPU
 #include "GrStyle.h"
@@ -54,9 +55,12 @@ bool SkAndroidFrameworkUtils::clipWithStencil(SkCanvas* canvas) {
 }
 #endif //SK_SUPPORT_GPU
 
+int SkAndroidFrameworkUtils::SaveBehind(SkCanvas* canvas, const SkRect* subset) {
+    return canvas->only_axis_aligned_saveBehind(subset);
+}
+
 void SkAndroidFrameworkUtils::SafetyNetLog(const char* bugNumber) {
     android_errorWriteLog(0x534e4554, bugNumber);
 }
 
 #endif // SK_BUILD_FOR_ANDROID_FRAMEWORK
-
