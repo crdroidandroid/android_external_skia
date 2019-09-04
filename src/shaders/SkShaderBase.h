@@ -101,6 +101,12 @@ public:
          */
         virtual void shadeSpan(int x, int y, SkPMColor[], int count) = 0;
 
+        enum SkShaderIds {
+            kSkBitmapProcShader_Class = 0x1,
+            kSkShader_OtherClass      = 0x2,
+        };
+        virtual SkShaderIds getID() { return kSkShader_OtherClass; }
+
     protected:
         // Reference to shader, so we don't have to dupe information.
         const SkShaderBase& fShader;
