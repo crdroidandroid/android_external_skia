@@ -105,10 +105,12 @@ SkShaderBase::Context* SkImageShader::onMakeContext(const ContextRec& rec,
     if (fImage->colorType() != kN32_SkColorType) {
         return nullptr;
     }
+#if !defined(SK_SUPPORT_LEGACY_TILED_BITMAPS)
     if (fTileModeX != fTileModeY) {
         return nullptr;
     }
     if (fTileModeX == kDecal_TileMode || fTileModeY == kDecal_TileMode) {
+#endif
         return nullptr;
     }
 
